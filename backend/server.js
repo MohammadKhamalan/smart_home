@@ -6,35 +6,33 @@ const Database = require('better-sqlite3');
 const app = express();
 
 /* =========================
-   CORS CONFIG (FIXED)
+   CORS (FINAL, SAFE VERSION)
 ========================= */
 
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  ...(process.env.FRONTEND_URL
-    ? process.env.FRONTEND_URL.split(',').map(u => u.trim()).filter(Boolean)
-    : []),
+  'https://smart-home-sand-six.vercel.app',
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // allow requests with no origin (mobile apps, curl, postman)
+    // allow server-to-server, curl, postman
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
 
-    return callback(new Error(`CORS blocked: ${origin}`), false);
+    // DO NOT throw error — just block silently
+    return callback(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: false
-}));
+};
 
-// IMPORTANT: handle preflight requests
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // IMPORTANT
 
 app.use(express.json());
 
@@ -60,11 +58,11 @@ app.post('/api/login', (req, res) => {
     });
   }
 
-  const stmt = db.prepare(
-    'SELECT id, username FROM users WHERE username = ? AND password = ?'
-  );
-
-  const user = stmt.get(username, password);
+  const user = db
+    .prepare(
+      'SELECT id, username FROM users WHERE username = ? AND password = ?'
+    )
+    .get(username, password);
 
   if (!user) {
     return res.status(401).json({
@@ -99,8 +97,7 @@ app.get('/api/stock', (req, res) => {
 ========================= */
 
 app.get('/api/room-costs', (req, res) => {
-  const rows = db.prepare('SELECT * FROM room_costs').all();
-  res.json(rows);
+  res.json(db.prepare('SELECT * FROM room_costs').all());
 });
 
 /* =========================
@@ -120,12 +117,7 @@ app.post('/api/quotations', (req, res) => {
   db.prepare(`
     INSERT INTO quotations (user_id, type, data, total)
     VALUES (?, ?, ?, ?)
-  `).run(
-    userId || null,
-    type,
-    JSON.stringify(data || {}),
-    total
-  );
+  `).run(userId || null, type, JSON.stringify(data || {}), total);
 
   res.json({ success: true });
 });
@@ -139,7 +131,7 @@ app.get('/api/health', (req, res) => {
 });
 
 /* =========================
-   START SERVER
+   START
 ========================= */
 
 const PORT = process.env.PORT || 5000;
