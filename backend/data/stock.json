@@ -1,0 +1,12 @@
+[
+  {"id": 1, "item_type": "button", "item_name": "Smart Switch Single", "unit_price": 45, "quantity_in_stock": 120, "category": "buttons"},
+  {"id": 2, "item_type": "button", "item_name": "Smart Switch Double", "unit_price": 65, "quantity_in_stock": 85, "category": "buttons"},
+  {"id": 3, "item_type": "button", "item_name": "Smart Dimmer", "unit_price": 55, "quantity_in_stock": 60, "category": "buttons"},
+  {"id": 4, "item_type": "screen", "item_name": "7\" Touch Panel", "unit_price": 180, "quantity_in_stock": 40, "category": "screens"},
+  {"id": 5, "item_type": "screen", "item_name": "10\" Wall Mount Display", "unit_price": 320, "quantity_in_stock": 25, "category": "screens"},
+  {"id": 6, "item_type": "screen", "item_name": "Tablet Hub 8\"", "unit_price": 250, "quantity_in_stock": 35, "category": "screens"},
+  {"id": 7, "item_type": "sensor", "item_name": "Motion Sensor", "unit_price": 35, "quantity_in_stock": 200, "category": "sensors"},
+  {"id": 8, "item_type": "sensor", "item_name": "Door/Window Sensor", "unit_price": 28, "quantity_in_stock": 150, "category": "sensors"},
+  {"id": 9, "item_type": "sensor", "item_name": "Temperature/Humidity", "unit_price": 42, "quantity_in_stock": 90, "category": "sensors"},
+  {"id": 10, "item_type": "sensor", "item_name": "Smart Thermostat", "unit_price": 95, "quantity_in_stock": 45, "category": "sensors"}
+]

@@ -1,0 +1,7 @@
+[
+  {"id": 1, "room_type": "living_room", "default_buttons": 4, "default_ac_units": 2, "cost_per_button": 50, "cost_per_ac": 120, "notes": "Living room typically has more switches and AC"},
+  {"id": 2, "room_type": "bedroom", "default_buttons": 2, "default_ac_units": 1, "cost_per_button": 50, "cost_per_ac": 120, "notes": "Standard bedroom"},
+  {"id": 3, "room_type": "kitchen", "default_buttons": 3, "default_ac_units": 1, "cost_per_button": 50, "cost_per_ac": 120, "notes": "Kitchen with extra switches"},
+  {"id": 4, "room_type": "bathroom", "default_buttons": 2, "default_ac_units": 0, "cost_per_button": 50, "cost_per_ac": 0, "notes": "Bathroom usually no AC"},
+  {"id": 5, "room_type": "other", "default_buttons": 2, "default_ac_units": 1, "cost_per_button": 50, "cost_per_ac": 120, "notes": "Other rooms"}
+]
