@@ -24,6 +24,16 @@
   gap: 1rem;
 }
 
+.lang-select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
 .user-name {
   color: var(--text-muted);
   font-size: 0.9rem;

@@ -1,17 +1,32 @@
 import { useState, useEffect } from 'react';
 import QuotationForm from '../components/QuotationForm';
 import { API_BASE } from '../api';
+import { useLanguage } from '../context/LanguageContext';
+import { useTranslations } from '../translations';
 import './Section.css';
 
+const CATEGORIES = [
+  { id: 'curtain', label: 'Curtain' },
+  { id: 'switches', label: 'Switches' },
+  { id: 'control_panels', label: 'Control Panels' },
+  { id: 'smart_door_locks', label: 'Smart Door Locks' },
+  { id: 'sensors', label: 'Sensors' },
+  { id: 'ac', label: 'AC' },
+];
+
 export default function SmartHome({ user }) {
-  const [stock, setStock] = useState({ buttons: [], screens: [], sensors: [] });
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+  const [stock, setStock] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState('curtain');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/stock`)
       .then((res) => res.json())
       .then((rows) => {
-        const byCategory = { buttons: [], screens: [], sensors: [] };
+        const byCategory = {};
+        CATEGORIES.forEach((c) => (byCategory[c.id] = []));
         rows.forEach((item) => {
           if (byCategory[item.category]) byCategory[item.category].push(item);
         });
@@ -20,7 +35,7 @@ export default function SmartHome({ user }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const allItems = [...stock.buttons, ...stock.screens, ...stock.sensors];
+  const allItems = CATEGORIES.flatMap((c) => stock[c.id] || []);
 
   const buildQuotation = (selections) => {
     const lines = [];
@@ -42,12 +57,15 @@ export default function SmartHome({ user }) {
 
   return (
     <section className="section">
-      <h2>Smart Home</h2>
-      <p className="section-desc">Select types and quantities for buttons, screens, and sensors. Quotation is generated from current stock.</p>
+      <h2>{t.smartHomeTitle}</h2>
+      <p className="section-desc">{t.smartHomeDesc}</p>
       <QuotationForm
         mode="smart-home"
         items={allItems}
         stockByCategory={stock}
+        categories={CATEGORIES}
+        selectedCategory={selectedCategory}
+        onCategoryChange={setSelectedCategory}
         buildQuotation={buildQuotation}
         user={user}
       />

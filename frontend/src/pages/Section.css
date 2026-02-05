@@ -27,3 +27,122 @@
 .welcome-msg p {
   font-size: 1.1rem;
 }
+
+/* Rough quotation stepper */
+.rough-stepper {
+  margin-bottom: 1.5rem;
+}
+
+.rough-step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.rough-step-label-ar {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+}
+
+.rough-step-label-en {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.rough-step-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.rough-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rough-btn:hover {
+  background: var(--surface-hover);
+}
+
+.rough-btn-plus {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+}
+
+.rough-btn-plus:hover {
+  background: var(--primary-dim);
+}
+
+.rough-input {
+  width: 100px;
+  padding: 0.6rem 0.85rem;
+  font-size: 1.25rem;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+.rough-step-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rough-step-progress {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+}
+
+.rough-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-hover);
+  border-radius: 8px;
+}
+
+.rough-summary p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.rough-option-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.rough-option-checkbox input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--primary);
+}

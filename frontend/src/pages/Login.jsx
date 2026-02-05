@@ -67,7 +67,6 @@ export default function Login({ onLogin }) {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
-        <p className="login-hint">Demo: admin / password123</p>
       </div>
     </div>
   );

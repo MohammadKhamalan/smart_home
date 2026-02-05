@@ -1,5 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { useTranslations } from './translations';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import SmartHome from './pages/SmartHome';
@@ -30,6 +32,16 @@ function App() {
     localStorage.removeItem('user');
   };
 
+  function DashboardWelcome() {
+    const { language } = useLanguage();
+    const t = useTranslations(language);
+    return (
+      <div className="welcome-msg">
+        <p>{t.welcomeChoose}</p>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -39,16 +51,18 @@ function App() {
   }
 
   return (
+    <LanguageProvider>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={onLogin} />} />
       <Route path="/" element={user ? <Dashboard user={user} onLogout={onLogout} /> : <Navigate to="/login" replace />}>
-        <Route index element={<div className="welcome-msg"><p>Choose an option above: Smart Home, AI, or Smart Home (Rough).</p></div>} />
+        <Route index element={<DashboardWelcome />} />
         <Route path="smart-home" element={<SmartHome user={user} />} />
         <Route path="ai" element={<AIQuotation user={user} />} />
         <Route path="smart-home-rough" element={<SmartHomeRough user={user} />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />
     </Routes>
+    </LanguageProvider>
   );
 }
 

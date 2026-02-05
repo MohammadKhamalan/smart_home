@@ -17,7 +17,7 @@ db.exec(`
   )
 `);
 
-// Stock
+// Stock (categories: curtain, switches, control_panels, smart_door_locks, sensors, ac)
 db.exec(`
   CREATE TABLE IF NOT EXISTS stock (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,9 +26,11 @@ db.exec(`
     unit_price REAL NOT NULL,
     quantity_in_stock INTEGER DEFAULT 0,
     category TEXT NOT NULL,
+    photo TEXT DEFAULT '',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
 `);
+try { db.exec('ALTER TABLE stock ADD COLUMN photo TEXT DEFAULT ""'); } catch (_) {}
 
 // Quotations
 db.exec(`
@@ -69,25 +71,29 @@ const insertUser = db.prepare(`
 insertUser.run('admin', 'password123');
 insertUser.run('user1', 'password123');
 
-// Stock
+// Stock: your catalog — curtain, switches, control_panels, smart_door_locks, sensors, ac
+db.exec('DELETE FROM stock');
 const insertStock = db.prepare(`
-  INSERT OR IGNORE INTO stock
-  (id, item_type, item_name, unit_price, quantity_in_stock, category)
-  VALUES (?, ?, ?, ?, ?, ?)
+  INSERT INTO stock
+  (id, item_type, item_name, unit_price, quantity_in_stock, category, photo)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
-[
-  [1, 'button', 'Smart Switch Single', 45, 120, 'buttons'],
-  [2, 'button', 'Smart Switch Double', 65, 85, 'buttons'],
-  [3, 'button', 'Smart Dimmer', 55, 60, 'buttons'],
-  [4, 'screen', '7" Touch Panel', 180, 40, 'screens'],
-  [5, 'screen', '10" Wall Mount Display', 320, 25, 'screens'],
-  [6, 'screen', 'Tablet Hub 8"', 250, 35, 'screens'],
-  [7, 'sensor', 'Motion Sensor', 35, 200, 'sensors'],
-  [8, 'sensor', 'Door/Window Sensor', 28, 150, 'sensors'],
-  [9, 'sensor', 'Temperature/Humidity', 42, 90, 'sensors'],
-  [10, 'sensor', 'Smart Thermostat', 95, 45, 'sensors'],
-].forEach(row => insertStock.run(...row));
+const PH = 'https://placehold.co/120x120/e2e8f0/64748b?text=';
+const stockRows = [
+  [1, 'curtain', 'Smart curtain', 1200, 50, 'curtain', PH + 'Curtain'],
+  [2, 'switch', 'smart switch 1gang', 190, 100, 'switches', PH + '1gang'],
+  [3, 'switch', 'smart switch 2gang', 175, 100, 'switches', PH + '2gang'],
+  [4, 'switch', 'smart switch 3gang', 168, 100, 'switches', PH + '3gang'],
+  [5, 'panel', '4 Inch Smart Control Panel (Built-in Alexa)', 912, 40, 'control_panels', PH + '4in'],
+  [6, 'panel', '10 inch Smart Home Control Panel', 2515, 25, 'control_panels', PH + '10in'],
+  [7, 'lock', 'Smart Door Lock', 850, 30, 'smart_door_locks', PH + 'Lock'],
+  [8, 'lock', 'Smart Door Lock', 1300, 30, 'smart_door_locks', PH + 'Lock2'],
+  [9, 'sensor', 'Motion Sensors', 191, 80, 'sensors', PH + 'Motion'],
+  [10, 'ac', 'Smart Thermostat Controller(IR)', 220, 60, 'ac', PH + 'IR'],
+  [11, 'ac', 'Smart Thermostat Controller', 556, 50, 'ac', PH + 'Thermo'],
+];
+stockRows.forEach(row => insertStock.run(...row));
 
 // Room costs
 const insertRoomCost = db.prepare(`
