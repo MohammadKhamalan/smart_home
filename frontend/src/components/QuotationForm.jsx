@@ -63,7 +63,6 @@ export default function QuotationForm({
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfQuoteNumber] = useState(() => 'QT-' + String(Math.floor(100000 + Math.random() * 900000)));
   const preloadRef = useRef(null);
-  const workerRef = useRef(null);
 
   useEffect(() => {
     if (prebuiltQuotation) setQuotation(prebuiltQuotation);
@@ -81,6 +80,7 @@ export default function QuotationForm({
 
   const handleDownloadPdf = async () => {
     if (!quotation || pdfGenerating) return;
+    setPdfGenerating(true);
     const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
     const filename = `Quotation-${pdfQuoteNumber}.pdf`;
     const opts = {
@@ -98,51 +98,12 @@ export default function QuotationForm({
       opts.logoDataUrl = logo;
       opts.signatureDataUrl = sig;
     } catch (_) {}
-
-    const useWorker = typeof Worker !== 'undefined';
-    if (useWorker) {
-      setPdfGenerating(true);
-      try {
-        if (!workerRef.current) {
-          workerRef.current = new Worker(new URL('../utils/quotationPdf.worker.js', import.meta.url), { type: 'module' });
-        }
-        const worker = workerRef.current;
-        await new Promise((resolve, reject) => {
-          const onMessage = (e) => {
-            worker.removeEventListener('message', onMessage);
-            worker.removeEventListener('error', onError);
-            if (e.data && e.data.error) {
-              reject(new Error(e.data.error));
-              return;
-            }
-            const blob = e.data && e.data.blob;
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = e.data.filename || filename;
-              a.click();
-              URL.revokeObjectURL(url);
-            }
-            resolve();
-          };
-          const onError = () => {
-            worker.removeEventListener('message', onMessage);
-            worker.removeEventListener('error', onError);
-            reject(new Error('Worker failed'));
-          };
-          worker.addEventListener('message', onMessage);
-          worker.addEventListener('error', onError);
-          worker.postMessage({ opts, filename });
-        });
-      } catch (err) {
-        console.error('PDF worker failed:', err);
-        downloadQuotationPdf(opts, filename);
-      } finally {
-        setPdfGenerating(false);
-      }
-    } else {
+    try {
+      // Yield to UI so "Preparing PDF..." shows, then generate
+      await new Promise((r) => setTimeout(r, 0));
       downloadQuotationPdf(opts, filename);
+    } finally {
+      setPdfGenerating(false);
     }
   };
 
