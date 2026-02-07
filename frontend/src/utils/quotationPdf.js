@@ -110,27 +110,25 @@ export function generateQuotationPdf(opts) {
   };
   const text = (str, x, yPos, options = {}) => doc.text(str, x, yPos, options);
 
-  // ----- Page 1: Colored header band then logo and title -----
+  // ----- Page 1: Colored header band then logo (above), then company row -----
   const headerBandHeight = 7;
   doc.setFillColor(41, 98, 255); // blue header
   doc.rect(0, 0, pageW, headerBandHeight, 'F');
 
-  const logoW = 32;
-  const logoH = 14;
+  const logoW = 70;
+  const logoH = 27;
+  const logoY = 12;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, y, logoW, logoH);
+      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, logoY, logoW, logoH);
     } catch (_) {}
   }
 
   doc.setTextColor(0, 0, 0);
-  font(16, 'bold');
-  text(labels.quote, margin, y + 5);
-  font(11, 'normal');
-  text(`# ${quoteNumber}`, margin, y + 10);
-  y += 18;
+  // Start company row below the logo so logo is clearly above Quote / #
+  y = logoY + logoH + 10;
 
-  // Company block — left column: name, address, country | right column: contact + legal
+  // Same level: left = Zuccess, Al Khobar, Kingdom of Saudi Arabia | right = Quote, # QT-xxx
   const rightColX = margin + 95;
   let yLeft = y;
   let yRight = y;
@@ -145,40 +143,42 @@ export function generateQuotationPdf(opts) {
   text(comp.country, margin, yLeft);
   yLeft += 5;
 
-  text(comp.phone, rightColX, yRight);
-  yRight += 5;
-  text(comp.email, rightColX, yRight);
-  yRight += 5;
-  text(comp.website, rightColX, yRight);
-  yRight += 5;
+  font(16, 'bold');
+  text(labels.quote, rightColX, yRight + 2);
+  font(11, 'normal');
+  text(`# ${quoteNumber}`, rightColX, yRight + 8);
+  yRight += 14;
+
+  y = Math.max(yLeft, yRight) + 10;
+
+  // Bill To (left) | contact + legal at same level (right)
+  const billToY = y;
+  font(10, 'bold');
+  text(labels.billTo, margin, billToY);
+  font(10, 'normal');
+  text(billTo, margin, billToY + 6);
+
+  text(comp.phone, rightColX, billToY);
+  text(comp.email, rightColX, billToY + 5);
+  text(comp.website, rightColX, billToY + 10);
   if (comp.licenseNumber || comp.vatNumber) {
     font(9, 'normal');
     const licenseStr = comp.licenseNumber ? `License: ${comp.licenseNumber}` : '';
     const vatStr = comp.vatNumber ? `VAT: ${comp.vatNumber}` : '';
     const legalLine = [licenseStr, vatStr].filter(Boolean).join('   ·   ');
-    text(legalLine, rightColX, yRight);
+    text(legalLine, rightColX, billToY + 15);
     font(10, 'normal');
-    yRight += 5;
   }
-
-  y = Math.max(yLeft, yRight) + 10;
-
-  // Bill To
-  font(10, 'bold');
-  text(labels.billTo, margin, y);
-  font(10, 'normal');
-  y += 6;
-  text(billTo, margin, y);
-  y += 10;
+  y = billToY + 22;
 
   // Subject & Date
   text('Subject:', margin, y);
-  text(subject, margin + 22, y);
-  y += 6;
+  text(subject, margin + 16, y);
+  y += 5;
   const dateStr = quoteDate instanceof Date ? quoteDate : new Date(quoteDate);
   const dateFormatted = dateStr.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
-  y += 14;
+  y += 12;
 
   // Table: # | Item & Description | Qty | Rate | Amount (include all lines so table is never empty)
   const lines = quotation.lines || [];
@@ -264,80 +264,6 @@ export function generateQuotationPdf(opts) {
   font(10, 'normal');
   y += 5;
   text(signatureTitle, margin, y);
-  y += 12;
-
-  // Footer page 1
-  font(9);
-  text('-- 1 of 2 --', pageW / 2, pageH - 10, { align: 'center' });
-
-  // ----- Page 2 -----
-  doc.addPage();
-  y = 22;
-
-  font(11, 'bold');
-  text('Payment Terms:', margin, y);
-  font(10, 'normal');
-  y += 8;
-  (termsText.payment || []).forEach((item) => {
-    const lines = doc.splitTextToSize(`• ${item}`, pageW - 2 * margin - 6);
-    lines.forEach((line) => {
-      text(line, margin + 4, y);
-      y += 5;
-    });
-    y += 2;
-  });
-  y += 4;
-
-  font(11, 'bold');
-  text('Installation Duration (Per Apartment):', margin, y);
-  font(10, 'normal');
-  y += 8;
-  (termsText.installation || []).forEach((item) => {
-    const lines = doc.splitTextToSize(`• ${item}`, pageW - 2 * margin - 6);
-    lines.forEach((line) => {
-      text(line, margin + 4, y);
-      y += 5;
-    });
-    y += 2;
-  });
-  y += 4;
-
-  font(11, 'bold');
-  text('Warranty & Support:', margin, y);
-  font(10, 'normal');
-  y += 8;
-  (termsText.warranty || []).forEach((item) => {
-    const lines = doc.splitTextToSize(`• ${item}`, pageW - 2 * margin - 6);
-    lines.forEach((line) => {
-      text(line, margin + 4, y);
-      y += 5;
-    });
-    y += 2;
-  });
-  y += 4;
-
-  font(11, 'bold');
-  text('Validity of Quotation', margin, y);
-  font(10, 'normal');
-  y += 6;
-  const validityLines = doc.splitTextToSize(`• ${termsText.validity || ''}`, pageW - 2 * margin - 6);
-  validityLines.forEach((line) => {
-    text(line, margin + 4, y);
-    y += 5;
-  });
-  y += 6;
-
-  font(11, 'bold');
-  text('Exclusions:', margin, y);
-  font(10, 'normal');
-  y += 6;
-  const exclLines = doc.splitTextToSize(`• ${termsText.exclusions || ''}`, pageW - 2 * margin - 6);
-  exclLines.forEach((line) => {
-    text(line, margin + 4, y);
-    y += 5;
-  });
-
-  text('-- 2 of 2 --', pageW / 2, pageH - 10, { align: 'center' });
 
   return doc;
 }

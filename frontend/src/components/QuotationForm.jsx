@@ -60,14 +60,16 @@ export default function QuotationForm({
   const [quantities, setQuantities] = useState({});
   const [quotation, setQuotation] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfQuoteNumber] = useState(() => 'QT-' + String(Math.floor(100000 + Math.random() * 900000)));
   const preloadRef = useRef(null);
+  const workerRef = useRef(null);
 
   useEffect(() => {
     if (prebuiltQuotation) setQuotation(prebuiltQuotation);
   }, [prebuiltQuotation]);
 
-  // Preload logo and signature once so download is instant
+  // Preload logo and signature once
   useEffect(() => {
     if (!preloadRef.current) {
       preloadRef.current = Promise.all([
@@ -78,25 +80,69 @@ export default function QuotationForm({
   }, [logoUrl, signatureUrl]);
 
   const handleDownloadPdf = async () => {
-    if (!quotation) return;
+    if (!quotation || pdfGenerating) return;
+    const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
+    const filename = `Quotation-${pdfQuoteNumber}.pdf`;
+    const opts = {
+      quotation,
+      quoteNumber: pdfQuoteNumber,
+      billTo: 'Client',
+      subject,
+      quoteDate: new Date(),
+      language,
+      logoDataUrl: null,
+      signatureDataUrl: null,
+    };
     try {
       const { logo, sig } = await (preloadRef.current || Promise.resolve({ logo: null, sig: null }));
-      const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
-      downloadQuotationPdf(
-        {
-          quotation,
-          quoteNumber: pdfQuoteNumber,
-          billTo: 'Client',
-          subject,
-          quoteDate: new Date(),
-          language,
-          logoDataUrl: logo,
-          signatureDataUrl: sig,
-        },
-        `Quotation-${pdfQuoteNumber}.pdf`
-      );
-    } catch (err) {
-      console.error('PDF download failed:', err);
+      opts.logoDataUrl = logo;
+      opts.signatureDataUrl = sig;
+    } catch (_) {}
+
+    const useWorker = typeof Worker !== 'undefined';
+    if (useWorker) {
+      setPdfGenerating(true);
+      try {
+        if (!workerRef.current) {
+          workerRef.current = new Worker(new URL('../utils/quotationPdf.worker.js', import.meta.url), { type: 'module' });
+        }
+        const worker = workerRef.current;
+        await new Promise((resolve, reject) => {
+          const onMessage = (e) => {
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', onError);
+            if (e.data && e.data.error) {
+              reject(new Error(e.data.error));
+              return;
+            }
+            const blob = e.data && e.data.blob;
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = e.data.filename || filename;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+            resolve();
+          };
+          const onError = () => {
+            worker.removeEventListener('message', onMessage);
+            worker.removeEventListener('error', onError);
+            reject(new Error('Worker failed'));
+          };
+          worker.addEventListener('message', onMessage);
+          worker.addEventListener('error', onError);
+          worker.postMessage({ opts, filename });
+        });
+      } catch (err) {
+        console.error('PDF worker failed:', err);
+        downloadQuotationPdf(opts, filename);
+      } finally {
+        setPdfGenerating(false);
+      }
+    } else {
+      downloadQuotationPdf(opts, filename);
     }
   };
 
@@ -361,9 +407,9 @@ export default function QuotationForm({
               type="button"
               className="btn-primary btn-download-pdf"
               onClick={handleDownloadPdf}
-              disabled={false}
+              disabled={pdfGenerating}
             >
-              {t.downloadPdf}
+              {pdfGenerating ? t.preparingPdf : t.downloadPdf}
             </button>
             {mode === 'smart-home' && (
               <button
