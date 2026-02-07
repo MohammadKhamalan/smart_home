@@ -4,7 +4,7 @@
   "description": "Backend for Smart Home & AI Quotation",
   "main": "server.js",
   "engines": {
-    "node": "20.x"
+    "node": ">=20"
   },
   "scripts": {
     "postinstall": "node initDb.js",
@@ -13,6 +13,7 @@
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "quotation-app": "file:.."
   }
 }

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { API_BASE } from '../api';
 import { downloadQuotationPdf } from '../utils/quotationPdf';
 import { getItemImage } from '../assets/itemImages';
+import logoUrl from '../assets/logo.png';
+import signatureUrl from '../assets/signiture.png';
 import { useLanguage } from '../context/LanguageContext';
 import { useTranslations } from '../translations';
 import './QuotationForm.css';
@@ -41,9 +43,14 @@ export default function QuotationForm({
   onServicePriceChange,
   serviceQty = 1,
   onServiceQtyChange,
+  aiServices = [],
+  onAiServicesChange,
   selectedService = '',
   onSelectedServiceChange,
   buildQuotation,
+  includeInstallation = false,
+  onIncludeInstallationChange,
+  onStockUpdated,
   user,
   dummyAiServices = [],
   prebuiltQuotation = null,
@@ -59,11 +66,11 @@ export default function QuotationForm({
     if (prebuiltQuotation) setQuotation(prebuiltQuotation);
   }, [prebuiltQuotation]);
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!quotation) return;
     try {
       const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
-      downloadQuotationPdf(
+      await downloadQuotationPdf(
         {
           quotation,
           quoteNumber: pdfQuoteNumber,
@@ -71,6 +78,8 @@ export default function QuotationForm({
           subject,
           quoteDate: new Date(),
           language,
+          logoUrl,
+          signatureUrl,
         },
         `Quotation-${pdfQuoteNumber}.pdf`
       );
@@ -89,7 +98,7 @@ export default function QuotationForm({
         ...item,
         quantity: quantities[item.id] || 0,
       }));
-      setQuotation(buildQuotation(selections));
+      setQuotation(buildQuotation(selections, { includeInstallation }));
     } else if (mode === 'ai') {
       setQuotation(buildQuotation());
     } else if (mode === 'rough') {
@@ -101,7 +110,7 @@ export default function QuotationForm({
     if (!quotation) return;
     setSaving(true);
     try {
-      await fetch(`${API_BASE}/api/quotations`, {
+      const res = await fetch(`${API_BASE}/api/quotations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,6 +120,14 @@ export default function QuotationForm({
           total: quotation.total,
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && mode === 'smart-home') {
+        if (data.updatedStock && Array.isArray(data.updatedStock) && onStockUpdated) {
+          onStockUpdated(data.updatedStock);
+        } else {
+          window.dispatchEvent(new CustomEvent('quotation-saved'));
+        }
+      }
     } catch (_) {}
     setSaving(false);
   };
@@ -143,65 +160,143 @@ export default function QuotationForm({
                   <span className="item-price">SAR {Number(item.unit_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   <span className="item-meta">Stock: {item.quantity_in_stock}</span>
                 </div>
-                <input
-                  type="number"
-                  min={0}
-                  max={item.quantity_in_stock}
-                  value={quantities[item.id] ?? ''}
-                  onChange={(e) => setQty(item.id, e.target.value)}
-                  placeholder="0"
-                  className="item-card-qty"
-                />
+                <div className="item-card-qty-controls">
+                  <button
+                    type="button"
+                    className="qty-btn qty-minus"
+                    onClick={() => setQty(item.id, Math.max(0, (quantities[item.id] || 0) - 1))}
+                    aria-label="Decrease"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={0}
+                    max={item.quantity_in_stock}
+                    value={quantities[item.id] ?? ''}
+                    onChange={(e) => setQty(item.id, e.target.value)}
+                    placeholder="0"
+                    className="item-card-qty"
+                  />
+                  <button
+                    type="button"
+                    className="qty-btn qty-plus"
+                    onClick={() => setQty(item.id, Math.min(item.quantity_in_stock, (quantities[item.id] || 0) + 1))}
+                    aria-label="Increase"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+          {(onIncludeInstallationChange != null) && (
+            <label className="rough-option-checkbox" style={{ marginTop: 12, display: 'block' }}>
+              <input
+                type="checkbox"
+                checked={includeInstallation}
+                onChange={(e) => onIncludeInstallationChange(e.target.checked)}
+              />
+              <span>{t.installationOption}</span>
+            </label>
+          )}
         </div>
       )}
 
-      {/* AI: name, description, price, quantity */}
-      {mode === 'ai' && (
+      {/* AI: multiple services — name, description, price, quantity per service */}
+      {mode === 'ai' && aiServices && onAiServicesChange && (
         <div className="form-block">
-          <div className="form-group">
-            <label>{t.nameOfService}</label>
-            <input
-              type="text"
-              value={serviceName}
-              onChange={(e) => onServiceNameChange?.(e.target.value)}
-              placeholder="e.g. Voice assistant integration"
-            />
-          </div>
-          <div className="form-group">
-            <label>{t.description}</label>
-            <textarea
-              value={serviceText}
-              onChange={(e) => onServiceTextChange(e.target.value)}
-              placeholder="Describe the AI service you need..."
-              rows={4}
-            />
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label>{t.priceSar}</label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={servicePrice}
-                onChange={(e) => onServicePriceChange?.(e.target.value)}
-                placeholder="0.00"
-              />
+          {aiServices.map((svc, index) => (
+            <div key={svc.id} className="ai-service-card">
+              <div className="ai-service-card-header">
+                <span className="ai-service-card-title">{t.nameOfService} {aiServices.length > 1 ? index + 1 : ''}</span>
+                {aiServices.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn-remove-service"
+                    onClick={() => onAiServicesChange(aiServices.filter((_, i) => i !== index))}
+                    aria-label={t.removeService}
+                  >
+                    {t.removeService}
+                  </button>
+                )}
+              </div>
+              <div className="form-group">
+                <label>{t.nameOfService}</label>
+                <input
+                  type="text"
+                  value={svc.name}
+                  onChange={(e) => {
+                    const next = [...aiServices];
+                    next[index] = { ...next[index], name: e.target.value };
+                    onAiServicesChange(next);
+                  }}
+                  placeholder="e.g. Voice assistant integration"
+                />
+              </div>
+              <div className="form-group">
+                <label>{t.description}</label>
+                <textarea
+                  value={svc.description}
+                  onChange={(e) => {
+                    const next = [...aiServices];
+                    next[index] = { ...next[index], description: e.target.value };
+                    onAiServicesChange(next);
+                  }}
+                  placeholder="Describe the AI service..."
+                  rows={3}
+                />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>{t.priceSar}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={svc.price}
+                    onChange={(e) => {
+                      const next = [...aiServices];
+                      next[index] = { ...next[index], price: e.target.value };
+                      onAiServicesChange(next);
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>{t.quantity}</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={svc.qty}
+                    onChange={(e) => {
+                      const next = [...aiServices];
+                      next[index] = { ...next[index], qty: Math.max(1, Number(e.target.value) || 1) };
+                      onAiServicesChange(next);
+                    }}
+                    placeholder="1"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label>{t.quantity}</label>
+          ))}
+          <button
+            type="button"
+            className="btn-secondary btn-add-service"
+            onClick={() => onAiServicesChange([...aiServices, { id: Date.now(), name: '', description: '', price: '', qty: 1 }])}
+          >
+            + {t.addService}
+          </button>
+          {(onIncludeInstallationChange != null) && (
+            <label className="rough-option-checkbox" style={{ marginTop: 12, display: 'block' }}>
               <input
-                type="number"
-                min={1}
-                value={serviceQty}
-                onChange={(e) => onServiceQtyChange?.(Math.max(1, Number(e.target.value) || 1))}
-                placeholder="1"
+                type="checkbox"
+                checked={includeInstallation}
+                onChange={(e) => onIncludeInstallationChange(e.target.checked)}
               />
-            </div>
-          </div>
+              <span>{t.installationOption}</span>
+            </label>
+          )}
         </div>
       )}
 
@@ -258,14 +353,16 @@ export default function QuotationForm({
             >
               {t.downloadPdf}
             </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={handleSaveQuotation}
-              disabled={saving}
-            >
-              {saving ? t.saving : t.saveQuotation}
-            </button>
+            {mode === 'smart-home' && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleSaveQuotation}
+                disabled={saving}
+              >
+                {saving ? t.saving : t.saveQuotation}
+              </button>
+            )}
           </div>
         </div>
       )}

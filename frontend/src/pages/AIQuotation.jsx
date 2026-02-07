@@ -4,22 +4,46 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTranslations } from '../translations';
 import './Section.css';
 
+const TAX_PERCENT = 15;
+const INSTALLATION_PERCENT = 15;
+
+const emptyService = () => ({ id: Date.now(), name: '', description: '', price: '', qty: 1 });
+
 export default function AIQuotation({ user }) {
   const { language } = useLanguage();
   const t = useTranslations(language);
-  const [serviceName, setServiceName] = useState('');
-  const [serviceText, setServiceText] = useState('');
-  const [servicePrice, setServicePrice] = useState('');
-  const [serviceQty, setServiceQty] = useState(1);
+  const [services, setServices] = useState([emptyService()]);
+  const [includeInstallation, setIncludeInstallation] = useState(false);
 
   const buildQuotation = () => {
-    const name = serviceName.trim() || 'AI Service';
-    const desc = serviceText.trim() ? ` — ${serviceText.trim().slice(0, 80)}${serviceText.length > 80 ? '...' : ''}` : '';
-    const qty = Math.max(0, Number(serviceQty) || 1);
-    const unitPrice = Math.max(0, Number(servicePrice) || 0);
-    const subtotal = qty * unitPrice;
-    const lines = [{ name: name + desc, qty, unitPrice, subtotal }];
-    return { lines, total: subtotal };
+    const lines = [];
+    let servicesSubtotal = 0;
+    services.forEach((svc) => {
+      const name = (svc.name || 'AI Service').trim();
+      const desc = (svc.description || '').trim()
+        ? ` — ${(svc.description || '').trim().slice(0, 80)}${(svc.description || '').length > 80 ? '...' : ''}`
+        : '';
+      const qty = Math.max(0, Number(svc.qty) || 1);
+      const unitPrice = Math.max(0, Number(svc.price) || 0);
+      const subtotal = qty * unitPrice;
+      servicesSubtotal += subtotal;
+      lines.push({ name: name + desc, qty, unitPrice, subtotal });
+    });
+    let total = servicesSubtotal;
+    const tax = servicesSubtotal * (TAX_PERCENT / 100);
+    lines.push({ name: `Tax (${TAX_PERCENT}%)`, qty: 1, unitPrice: tax, subtotal: tax });
+    total += tax;
+    if (includeInstallation) {
+      const installation = servicesSubtotal * (INSTALLATION_PERCENT / 100);
+      lines.push({
+        name: `Installation & programming (${INSTALLATION_PERCENT}%)`,
+        qty: 1,
+        unitPrice: installation,
+        subtotal: installation,
+      });
+      total += installation;
+    }
+    return { lines, total };
   };
 
   return (
@@ -29,15 +53,11 @@ export default function AIQuotation({ user }) {
       <QuotationForm
         mode="ai"
         items={[]}
-        serviceName={serviceName}
-        onServiceNameChange={setServiceName}
-        serviceText={serviceText}
-        onServiceTextChange={setServiceText}
-        servicePrice={servicePrice}
-        onServicePriceChange={setServicePrice}
-        serviceQty={serviceQty}
-        onServiceQtyChange={setServiceQty}
+        aiServices={services}
+        onAiServicesChange={setServices}
         buildQuotation={buildQuotation}
+        includeInstallation={includeInstallation}
+        onIncludeInstallationChange={setIncludeInstallation}
         user={user}
       />
     </section>

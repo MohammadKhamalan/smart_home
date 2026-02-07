@@ -81,6 +81,7 @@ app.post('/api/login', (req, res) => {
 app.get('/api/stock', (req, res) => {
   const { category } = req.query;
 
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   const rows = category
     ? db
         .prepare('SELECT * FROM stock WHERE category = ? ORDER BY item_name')
@@ -114,12 +115,40 @@ app.post('/api/quotations', (req, res) => {
     });
   }
 
-  db.prepare(`
-    INSERT INTO quotations (user_id, type, data, total)
-    VALUES (?, ?, ?, ?)
-  `).run(userId || null, type, JSON.stringify(data || {}), total);
+  try {
+    const insertQuotation = db.prepare(`
+      INSERT INTO quotations (user_id, type, data, total)
+      VALUES (?, ?, ?, ?)
+    `);
+    const updateStock = db.prepare(
+      'UPDATE stock SET quantity_in_stock = MAX(0, quantity_in_stock - ?) WHERE id = ?'
+    );
 
-  res.json({ success: true });
+    const saveQuotationAndUpdateStock = db.transaction(() => {
+      insertQuotation.run(userId || null, type, JSON.stringify(data || {}), total);
+
+      // Deduct stock when saving smart-home quotation (lines with item id)
+      if (type === 'smart-home' && data && Array.isArray(data.lines)) {
+        for (const line of data.lines) {
+          if (line.id != null && (line.qty || 0) > 0) {
+            updateStock.run(line.qty, line.id);
+          }
+        }
+      }
+    });
+
+    saveQuotationAndUpdateStock();
+
+    // Return updated stock for smart-home so the UI can show new values immediately
+    if (type === 'smart-home') {
+      const updatedStock = db.prepare('SELECT * FROM stock ORDER BY category, item_name').all();
+      return res.json({ success: true, updatedStock });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Save quotation / update stock failed:', err);
+    res.status(500).json({ success: false, message: 'Failed to save quotation or update stock' });
+  }
 });
 
 /* =========================

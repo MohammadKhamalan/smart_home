@@ -25,6 +25,8 @@ export const translations = {
     description: 'Description',
     priceSar: 'Price (SAR)',
     quantity: 'Quantity',
+    addService: 'Add service',
+    removeService: 'Remove',
 
     // PDF
     quote: 'Quote',
@@ -74,6 +76,8 @@ export const translations = {
     description: 'الوصف',
     priceSar: 'السعر (ر.س)',
     quantity: 'الكمية',
+    addService: 'إضافة خدمة',
+    removeService: 'إزالة',
 
     quote: 'عرض سعر',
     billTo: 'إلى',

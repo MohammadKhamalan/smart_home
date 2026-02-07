@@ -52,6 +52,48 @@
   min-width: 140px;
 }
 
+.ai-service-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  background: var(--bg);
+}
+
+.ai-service-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.ai-service-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.btn-remove-service {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.btn-remove-service:hover {
+  background: rgba(200, 60, 60, 0.1);
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+.btn-add-service {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
 .category-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -133,14 +175,51 @@
   color: var(--text-muted);
 }
 
-.item-card-qty {
-  width: 80px;
-  padding: 0.4rem;
+.item-card-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.item-card-qty-controls .item-card-qty {
+  width: 52px;
+  padding: 0.4rem 0.25rem;
   text-align: center;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
+  font-size: 0.9rem;
+}
+
+.qty-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qty-btn:hover {
+  background: var(--surface-hover);
+}
+
+.qty-btn.qty-plus {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+}
+
+.qty-btn.qty-plus:hover {
+  background: var(--primary-dim);
 }
 
 .category-block {
