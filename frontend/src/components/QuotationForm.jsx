@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../api';
-import { downloadQuotationPdf } from '../utils/quotationPdf';
+import { downloadQuotationPdf, imageUrlToDataUrl } from '../utils/quotationPdf';
 import { getItemImage } from '../assets/itemImages';
 import logoUrl from '../assets/logo.png';
 import signatureUrl from '../assets/signiture.png';
@@ -61,16 +61,28 @@ export default function QuotationForm({
   const [quotation, setQuotation] = useState(null);
   const [saving, setSaving] = useState(false);
   const [pdfQuoteNumber] = useState(() => 'QT-' + String(Math.floor(100000 + Math.random() * 900000)));
+  const preloadRef = useRef(null);
 
   useEffect(() => {
     if (prebuiltQuotation) setQuotation(prebuiltQuotation);
   }, [prebuiltQuotation]);
 
+  // Preload logo and signature once so download is instant
+  useEffect(() => {
+    if (!preloadRef.current) {
+      preloadRef.current = Promise.all([
+        logoUrl ? imageUrlToDataUrl(logoUrl) : Promise.resolve(null),
+        signatureUrl ? imageUrlToDataUrl(signatureUrl) : Promise.resolve(null),
+      ]).then(([logo, sig]) => ({ logo, sig }));
+    }
+  }, [logoUrl, signatureUrl]);
+
   const handleDownloadPdf = async () => {
     if (!quotation) return;
     try {
+      const { logo, sig } = await (preloadRef.current || Promise.resolve({ logo: null, sig: null }));
       const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
-      await downloadQuotationPdf(
+      downloadQuotationPdf(
         {
           quotation,
           quoteNumber: pdfQuoteNumber,
@@ -78,8 +90,8 @@ export default function QuotationForm({
           subject,
           quoteDate: new Date(),
           language,
-          logoUrl,
-          signatureUrl,
+          logoDataUrl: logo,
+          signatureDataUrl: sig,
         },
         `Quotation-${pdfQuoteNumber}.pdf`
       );
