@@ -137,7 +137,14 @@ const logoH = 20; // increase proportionally
   const logoY = 12;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', pageW - logoW, logoY, logoW, logoH);
+doc.addImage(
+  logoDataUrl,
+  'PNG',
+  pageW - margin - logoW,
+  logoY,
+  logoW,
+  logoH
+);
     } catch (_) {}
   }
 
@@ -296,15 +303,26 @@ const totalWithTax =
  * Generate and download the PDF immediately (sync). Caller must pass logoDataUrl and signatureDataUrl (e.g. from preload).
  */
 export function downloadQuotationPdf(opts, filename) {
-  const doc = generateQuotationPdf(opts);
   const name = filename || 'Quotation.pdf';
-
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  if (isIOS) {
-    const pdfBlobUrl = doc.output('bloburl');
-    window.open(pdfBlobUrl, '_blank');
-  } else {
-    doc.save(name);
-  }
+  // ⏳ Let UI breathe (prevents freeze)
+  setTimeout(() => {
+    const doc = generateQuotationPdf(opts);
+
+    if (isIOS) {
+      // ✅ ONLY method Safari allows
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+
+      // MUST be same-tab navigation
+      window.location.href = url;
+
+      // cleanup
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    } else {
+      doc.save(name);
+    }
+  }, 0);
 }
+
