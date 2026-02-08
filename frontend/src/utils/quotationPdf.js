@@ -10,7 +10,7 @@ const defaultCompany = {
   name: 'Zuccess',
   address: 'Al Khobar',
   country: 'Kingdom of Saudi Arabia',
-  phone: '+971 54-437 5797',
+  phone: '+966 56 119 1797',
   email: 'info@zuccess.net',
   website: 'www.zuccess.ai',
   licenseNumber: '7042632393',
@@ -74,22 +74,6 @@ export async function imageUrlToDataUrl(url) {
     return null;
   }
 }
-const TAX_RATE = 0.15;
-
-const isTaxLine = (line) => {
-  const name = (line.name || '').toLowerCase();
-  return name.includes('tax') || name.includes('vat') || name.includes('ضريبة');
-};
-
-const isProgrammingOrInstallation = (line) => {
-  const name = (line.name || '').toLowerCase();
-  return (
-    name.includes('programming') ||
-    name.includes('installation') ||
-    name.includes('برمجة') ||
-    name.includes('تركيب')
-  );
-};
 
 export function generateQuotationPdf(opts) {
   const {
@@ -128,23 +112,15 @@ export function generateQuotationPdf(opts) {
 
   // ----- Page 1: Colored header band then logo (above), then company row -----
   const headerBandHeight = 7;
-doc.setFillColor(2, 1, 43); // #02012B
+  doc.setFillColor(25, 55, 95); // navy header (كحلي)
   doc.rect(0, 0, pageW, headerBandHeight, 'F');
 
-const logoW = 100; // was 70
-const logoH = 20; // increase proportionally
-
+  const logoW = 70;
+  const logoH = 27;
   const logoY = 12;
   if (logoDataUrl) {
     try {
-doc.addImage(
-  logoDataUrl,
-  'PNG',
-  pageW - margin - logoW,
-  logoY,
-  logoW,
-  logoH
-);
+      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, logoY, logoW, logoH);
     } catch (_) {}
   }
 
@@ -196,35 +172,17 @@ doc.addImage(
   text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
   y += 12;
 
+  // Table: # | Item & Description | Qty | Rate | Amount (include all lines so table is never empty)
   const lines = quotation.lines || [];
-
-// 1️⃣ remove tax line from table
-const tableLines = lines.filter((line) => !isTaxLine(line));
-
-const tableData = tableLines.length
-  ? tableLines.map((line, i) => {
-      let unitPrice = Number(line.unitPrice) || 0;
-      let subtotal = Number(line.subtotal) || 0;
-
-      // 2️⃣ remove 15% ONLY for programming & installation (table only)
-      if (isProgrammingOrInstallation(line)) {
-        unitPrice = unitPrice / (1 + TAX_RATE);
-        subtotal = subtotal / (1 + TAX_RATE);
-      }
-
-    // remove "(15%)" or any percentage text from table display
-const cleanName = (line.name || '').replace(/\s*\(\s*\d+%\s*\)/g, '');
-
-return [
-  i + 1,
-  cleanName || '—',
-  formatNum(line.qty ?? 0),
-  formatNum(unitPrice),
-  formatNum(subtotal),
-];
-
-    })
-  : [[1, 'No items', '0.00', '0.00', '0.00']];
+  const tableData = lines.length
+    ? lines.map((line, i) => [
+        i + 1,
+        line.name || '—',
+        formatNum(line.qty ?? 0),
+        formatNum(line.unitPrice ?? 0),
+        formatNum(line.subtotal ?? 0),
+      ])
+    : [[1, 'No items', '0.00', '0.00', '0.00']];
 
   doc.autoTable({
     startY: y,
@@ -233,7 +191,7 @@ return [
     margin: { left: margin, right: margin },
     theme: 'grid',
     headStyles: {
-     fillColor: [2, 1, 43],
+      fillColor: [25, 55, 95],
       textColor: [255, 255, 255],
       fontSize: 10,
       fontStyle: 'bold',
@@ -249,12 +207,15 @@ return [
   });
   y = doc.lastAutoTable.finalY + 8;
 
-
+  // Sub Total = sum of all lines except tax. Total = sub total + 15% tax.
+  const isTaxLine = (line) => {
+    const name = (line.name || '').toLowerCase();
+    return name.includes('tax') || name.includes('ضريبة');
+  };
   const subTotalWithoutTax = (quotation.lines || [])
     .filter((line) => !isTaxLine(line))
     .reduce((sum, line) => sum + (Number(line.subtotal) || 0), 0);
-const totalWithTax =
-  Math.round(subTotalWithoutTax * (1 + TAX_RATE) * 100) / 100;
+  const totalWithTax = Math.round(subTotalWithoutTax * 1.15 * 100) / 100;
   const amountX = margin + 48;
 
   font(10);
@@ -300,29 +261,18 @@ const totalWithTax =
 }
 
 /**
- * Generate and download the PDF immediately (sync). Caller must pass logoDataUrl and signatureDataUrl (e.g. from preload).
+ * Generate PDF and return as Blob (for iOS-safe download).
  */
-export function downloadQuotationPdf(opts, filename) {
-  const name = filename || 'Quotation.pdf';
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  // ⏳ Let UI breathe (prevents freeze)
-  setTimeout(() => {
-    const doc = generateQuotationPdf(opts);
-
-    if (isIOS) {
-      // ✅ ONLY method Safari allows
-      const blob = doc.output('blob');
-      const url = URL.createObjectURL(blob);
-
-      // MUST be same-tab navigation
-      window.location.href = url;
-
-      // cleanup
-      setTimeout(() => URL.revokeObjectURL(url), 15000);
-    } else {
-      doc.save(name);
-    }
-  }, 0);
+export function getQuotationPdfBlob(opts) {
+  const doc = generateQuotationPdf(opts);
+  return doc.output('blob');
 }
 
+/**
+ * Generate and download the PDF (sync). Caller must pass logoDataUrl and signatureDataUrl.
+ */
+export function downloadQuotationPdf(opts, filename) {
+  const doc = generateQuotationPdf(opts);
+  const name = filename || `Quotation-${opts.quoteNumber || 'QT-000001'}.pdf`;
+  doc.save(name);
+}

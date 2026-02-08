@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../api';
-import { downloadQuotationPdf, imageUrlToDataUrl } from '../utils/quotationPdf';
+import { getQuotationPdfBlob, imageUrlToDataUrl } from '../utils/quotationPdf';
 import { getItemImage } from '../assets/itemImages';
 import logoUrl from '../assets/logo.png';
 import signatureUrl from '../assets/signiture.png';
@@ -62,6 +62,7 @@ export default function QuotationForm({
   const [saving, setSaving] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfQuoteNumber] = useState(() => 'QT-' + String(Math.floor(100000 + Math.random() * 900000)));
+  const [billTo, setBillTo] = useState('Client');
   const preloadRef = useRef(null);
 
   useEffect(() => {
@@ -86,7 +87,7 @@ export default function QuotationForm({
     const opts = {
       quotation,
       quoteNumber: pdfQuoteNumber,
-      billTo: 'Client',
+      billTo: (billTo && billTo.trim()) || 'Client',
       subject,
       quoteDate: new Date(),
       language,
@@ -99,9 +100,20 @@ export default function QuotationForm({
       opts.signatureDataUrl = sig;
     } catch (_) {}
     try {
-      // Yield to UI so "Preparing PDF..." shows, then generate
       await new Promise((r) => setTimeout(r, 0));
-      downloadQuotationPdf(opts, filename);
+      const blob = getQuotationPdfBlob(opts);
+      const url = URL.createObjectURL(blob);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) {
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+      }
     } finally {
       setPdfGenerating(false);
     }
@@ -153,6 +165,17 @@ export default function QuotationForm({
 
   return (
     <div className="quotation-form">
+      <div className="form-block">
+        <div className="form-group">
+          <label>{t.billTo}</label>
+          <input
+            type="text"
+            value={billTo}
+            onChange={(e) => setBillTo(e.target.value)}
+            placeholder="Client"
+          />
+        </div>
+      </div>
       {/* Smart Home: category selector + item cards (photo, name, price, qty) */}
       {mode === 'smart-home' && (
         <div className="form-block">
