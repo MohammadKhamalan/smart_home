@@ -15,18 +15,13 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
   'https://smart-home-sand-six.vercel.app',
+  ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // allow server-to-server, curl, postman
     if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // DO NOT throw error — just block silently
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -36,7 +31,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // IMPORTANT
 
-app.use(express.json({ limit: '5mb' }));
+app.use(express.json({ limit: '512kb' }));
 
 /* =========================
    DATABASE
@@ -160,6 +155,19 @@ app.post('/api/quotations', (req, res) => {
 const publicDir = path.join(__dirname, 'public');
 const pdfDir = path.join(publicDir, 'pdf');
 
+function loadLocalImageDataUrl(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const buf = fs.readFileSync(filePath);
+    const base64 = buf.toString('base64');
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+    return `data:${mime};base64,${base64}`;
+  } catch (_) {
+    return null;
+  }
+}
+
 app.post('/api/quotation/pdf', (req, res) => {
   try {
     const {
@@ -171,13 +179,15 @@ app.post('/api/quotation/pdf', (req, res) => {
       notes,
       signatureName,
       signatureTitle,
-      logoDataUrl,
-      signatureDataUrl,
     } = req.body || {};
 
     if (!quotation) {
       return res.status(400).json({ success: false, message: 'quotation required' });
     }
+
+    const assetsDir = path.join(__dirname, 'assets');
+    const logoDataUrl = loadLocalImageDataUrl(path.join(assetsDir, 'logo.png'));
+    const signatureDataUrl = loadLocalImageDataUrl(path.join(assetsDir, 'signature.png')) || loadLocalImageDataUrl(path.join(assetsDir, 'signiture.png'));
 
     const opts = {
       quotation,
@@ -188,8 +198,8 @@ app.post('/api/quotation/pdf', (req, res) => {
       notes: notes || 'Looking forward for your business.',
       signatureName: signatureName || 'Anas Salem',
       signatureTitle: signatureTitle || 'Operation Manager',
-      logoDataUrl: logoDataUrl || null,
-      signatureDataUrl: signatureDataUrl || null,
+      logoDataUrl,
+      signatureDataUrl,
     };
 
     const doc = generateQuotationPdf(opts);

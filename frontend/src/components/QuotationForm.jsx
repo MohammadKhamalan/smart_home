@@ -84,14 +84,6 @@ export default function QuotationForm({
     setPdfGenerating(true);
     const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
     try {
-      let logoDataUrl = null;
-      let signatureDataUrl = null;
-      try {
-        const { logo, sig } = await (preloadRef.current || Promise.resolve({ logo: null, sig: null }));
-        logoDataUrl = logo;
-        signatureDataUrl = sig;
-      } catch (_) {}
-
       const res = await fetch(`${API_BASE}/api/quotation/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -104,8 +96,6 @@ export default function QuotationForm({
           notes: 'Looking forward for your business.',
           signatureName: 'Anas Salem',
           signatureTitle: 'Operation Manager',
-          logoDataUrl,
-          signatureDataUrl,
         }),
       });
 
