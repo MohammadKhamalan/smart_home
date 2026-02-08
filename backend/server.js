@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const Database = require('better-sqlite3');
+const { generateQuotationPdf } = require('./utils/quotationPdf');
 
 const app = express();
 
@@ -34,7 +36,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // IMPORTANT
 
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 /* =========================
    DATABASE
@@ -150,6 +152,76 @@ app.post('/api/quotations', (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to save quotation or update stock' });
   }
 });
+
+/* =========================
+   PDF (server-side): generate and save to public/pdf, return URL
+========================= */
+
+const publicDir = path.join(__dirname, 'public');
+const pdfDir = path.join(publicDir, 'pdf');
+
+app.post('/api/quotation/pdf', (req, res) => {
+  try {
+    const {
+      quotation,
+      quoteNumber = 'QT-000001',
+      billTo = 'Client',
+      subject = 'Smart Home Quotation',
+      quoteDate,
+      notes,
+      signatureName,
+      signatureTitle,
+      logoDataUrl,
+      signatureDataUrl,
+    } = req.body || {};
+
+    if (!quotation) {
+      return res.status(400).json({ success: false, message: 'quotation required' });
+    }
+
+    const opts = {
+      quotation,
+      quoteNumber,
+      billTo: (billTo && String(billTo).trim()) || 'Client',
+      subject: subject || 'Smart Home Quotation',
+      quoteDate: quoteDate ? new Date(quoteDate) : new Date(),
+      notes: notes || 'Looking forward for your business.',
+      signatureName: signatureName || 'Anas Salem',
+      signatureTitle: signatureTitle || 'Operation Manager',
+      logoDataUrl: logoDataUrl || null,
+      signatureDataUrl: signatureDataUrl || null,
+    };
+
+    const doc = generateQuotationPdf(opts);
+    const safeNumber = String(quoteNumber).replace(/[^a-zA-Z0-9-_]/g, '_');
+    const filename = `Quotation-${safeNumber}.pdf`;
+
+    if (!fs.existsSync(pdfDir)) {
+      fs.mkdirSync(pdfDir, { recursive: true });
+    }
+    const filePath = path.join(pdfDir, filename);
+    const buffer = Buffer.from(doc.output('arraybuffer'));
+    fs.writeFileSync(filePath, buffer);
+
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    const url = `${baseUrl}/pdf/${filename}`;
+    res.json({ success: true, url, filename });
+  } catch (err) {
+    console.error('PDF generation failed:', err);
+    res.status(500).json({ success: false, message: 'Failed to generate PDF' });
+  }
+});
+
+/* =========================
+   Serve generated PDFs from public/pdf
+========================= */
+
+if (fs.existsSync(pdfDir)) {
+  app.use('/pdf', express.static(pdfDir));
+} else {
+  fs.mkdirSync(pdfDir, { recursive: true });
+  app.use('/pdf', express.static(pdfDir));
+}
 
 /* =========================
    HEALTH

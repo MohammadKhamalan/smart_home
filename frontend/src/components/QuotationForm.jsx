@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../api';
-import { getQuotationPdfBlob, imageUrlToDataUrl } from '../utils/quotationPdf';
+import { imageUrlToDataUrl } from '../utils/quotationPdf';
 import { getItemImage } from '../assets/itemImages';
 import logoUrl from '../assets/logo.png';
 import signatureUrl from '../assets/signiture.png';
@@ -83,37 +83,39 @@ export default function QuotationForm({
     if (!quotation || pdfGenerating) return;
     setPdfGenerating(true);
     const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
-    const filename = `Quotation-${pdfQuoteNumber}.pdf`;
-    const opts = {
-      quotation,
-      quoteNumber: pdfQuoteNumber,
-      billTo: (billTo && billTo.trim()) || 'Client',
-      subject,
-      quoteDate: new Date(),
-      language,
-      logoDataUrl: null,
-      signatureDataUrl: null,
-    };
     try {
-      const { logo, sig } = await (preloadRef.current || Promise.resolve({ logo: null, sig: null }));
-      opts.logoDataUrl = logo;
-      opts.signatureDataUrl = sig;
-    } catch (_) {}
-    try {
-      await new Promise((r) => setTimeout(r, 0));
-      const blob = getQuotationPdfBlob(opts);
-      const url = URL.createObjectURL(blob);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      if (isIOS) {
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 3000);
-      } else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 500);
+      let logoDataUrl = null;
+      let signatureDataUrl = null;
+      try {
+        const { logo, sig } = await (preloadRef.current || Promise.resolve({ logo: null, sig: null }));
+        logoDataUrl = logo;
+        signatureDataUrl = sig;
+      } catch (_) {}
+
+      const res = await fetch(`${API_BASE}/api/quotation/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quotation,
+          quoteNumber: pdfQuoteNumber,
+          billTo: (billTo && billTo.trim()) || 'Client',
+          subject,
+          quoteDate: new Date().toISOString(),
+          notes: 'Looking forward for your business.',
+          signatureName: 'Anas Salem',
+          signatureTitle: 'Operation Manager',
+          logoDataUrl,
+          signatureDataUrl,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.url) {
+        throw new Error(data.message || 'Failed to generate PDF');
       }
+      window.open(data.url, '_blank');
+    } catch (err) {
+      console.error('PDF failed:', err);
     } finally {
       setPdfGenerating(false);
     }
