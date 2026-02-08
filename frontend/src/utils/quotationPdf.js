@@ -74,6 +74,22 @@ export async function imageUrlToDataUrl(url) {
     return null;
   }
 }
+const TAX_RATE = 0.15;
+
+const isTaxLine = (line) => {
+  const name = (line.name || '').toLowerCase();
+  return name.includes('tax') || name.includes('vat') || name.includes('ضريبة');
+};
+
+const isProgrammingOrInstallation = (line) => {
+  const name = (line.name || '').toLowerCase();
+  return (
+    name.includes('programming') ||
+    name.includes('installation') ||
+    name.includes('برمجة') ||
+    name.includes('تركيب')
+  );
+};
 
 export function generateQuotationPdf(opts) {
   const {
@@ -112,64 +128,57 @@ export function generateQuotationPdf(opts) {
 
   // ----- Page 1: Colored header band then logo (above), then company row -----
   const headerBandHeight = 7;
-  doc.setFillColor(41, 98, 255); // blue header
+doc.setFillColor(2, 1, 43); // #02012B
   doc.rect(0, 0, pageW, headerBandHeight, 'F');
 
-  const logoW = 70;
-  const logoH = 27;
+const logoW = 100; // was 70
+const logoH = 20; // increase proportionally
+
   const logoY = 12;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, logoY, logoW, logoH);
+      doc.addImage(logoDataUrl, 'PNG', pageW - logoW, logoY, logoW, logoH);
     } catch (_) {}
   }
 
   doc.setTextColor(0, 0, 0);
-  // Start company row below the logo so logo is clearly above Quote / #
   y = logoY + logoH + 10;
 
-  // Same level: left = Zuccess, Al Khobar, Kingdom of Saudi Arabia | right = Quote, # QT-xxx
-  const rightColX = margin + 95;
-  let yLeft = y;
-  let yRight = y;
+  const rightColX = pageW - margin - 58;
+  const rowH = 6;
 
+  // Left column at margin | right column (Quote, contact, License, VAT)
   font(14, 'bold');
-  text(comp.name, margin, yLeft);
-  yLeft += 7;
-
-  font(10, 'normal');
-  text(comp.address, margin, yLeft);
-  yLeft += 5;
-  text(comp.country, margin, yLeft);
-  yLeft += 5;
-
+  text(comp.name, margin, y);
   font(16, 'bold');
-  text(labels.quote, rightColX, yRight + 2);
-  font(11, 'normal');
-  text(`# ${quoteNumber}`, rightColX, yRight + 8);
-  yRight += 14;
+  text(labels.quote, rightColX, y);
 
-  y = Math.max(yLeft, yRight) + 10;
-
-  // Bill To (left) | contact + legal at same level (right)
-  const billToY = y;
-  font(10, 'bold');
-  text(labels.billTo, margin, billToY);
   font(10, 'normal');
-  text(billTo, margin, billToY + 6);
+  text(comp.address, margin, y + rowH);
+  font(11, 'normal');
+  text(`# ${quoteNumber}`, rightColX, y + rowH);
 
-  text(comp.phone, rightColX, billToY);
-  text(comp.email, rightColX, billToY + 5);
-  text(comp.website, rightColX, billToY + 10);
-  if (comp.licenseNumber || comp.vatNumber) {
+  text(comp.country, margin, y + rowH * 2);
+  text(comp.phone, rightColX, y + rowH * 2);
+
+  font(10, 'bold');
+  text(labels.billTo, margin, y + rowH * 3);
+  font(10, 'normal');
+  text(comp.email, rightColX, y + rowH * 3);
+
+  text(billTo, margin, y + rowH * 4);
+  text(comp.website, rightColX, y + rowH * 4);
+
+  if (comp.licenseNumber) {
     font(9, 'normal');
-    const licenseStr = comp.licenseNumber ? `License: ${comp.licenseNumber}` : '';
-    const vatStr = comp.vatNumber ? `VAT: ${comp.vatNumber}` : '';
-    const legalLine = [licenseStr, vatStr].filter(Boolean).join('   ·   ');
-    text(legalLine, rightColX, billToY + 15);
+    text(`License: ${comp.licenseNumber}`, rightColX, y + rowH * 5);
+  }
+  if (comp.vatNumber) {
+    text(`VAT: ${comp.vatNumber}`, rightColX, comp.licenseNumber ? y + rowH * 6 : y + rowH * 5);
     font(10, 'normal');
   }
-  y = billToY + 22;
+
+  y += (comp.licenseNumber || comp.vatNumber ? rowH * 7 : rowH * 5) + 6;
 
   // Subject & Date
   text('Subject:', margin, y);
@@ -180,17 +189,35 @@ export function generateQuotationPdf(opts) {
   text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
   y += 12;
 
-  // Table: # | Item & Description | Qty | Rate | Amount (include all lines so table is never empty)
   const lines = quotation.lines || [];
-  const tableData = lines.length
-    ? lines.map((line, i) => [
-        i + 1,
-        line.name || '—',
-        formatNum(line.qty ?? 0),
-        formatNum(line.unitPrice ?? 0),
-        formatNum(line.subtotal ?? 0),
-      ])
-    : [[1, 'No items', '0.00', '0.00', '0.00']];
+
+// 1️⃣ remove tax line from table
+const tableLines = lines.filter((line) => !isTaxLine(line));
+
+const tableData = tableLines.length
+  ? tableLines.map((line, i) => {
+      let unitPrice = Number(line.unitPrice) || 0;
+      let subtotal = Number(line.subtotal) || 0;
+
+      // 2️⃣ remove 15% ONLY for programming & installation (table only)
+      if (isProgrammingOrInstallation(line)) {
+        unitPrice = unitPrice / (1 + TAX_RATE);
+        subtotal = subtotal / (1 + TAX_RATE);
+      }
+
+    // remove "(15%)" or any percentage text from table display
+const cleanName = (line.name || '').replace(/\s*\(\s*\d+%\s*\)/g, '');
+
+return [
+  i + 1,
+  cleanName || '—',
+  formatNum(line.qty ?? 0),
+  formatNum(unitPrice),
+  formatNum(subtotal),
+];
+
+    })
+  : [[1, 'No items', '0.00', '0.00', '0.00']];
 
   doc.autoTable({
     startY: y,
@@ -199,7 +226,7 @@ export function generateQuotationPdf(opts) {
     margin: { left: margin, right: margin },
     theme: 'grid',
     headStyles: {
-      fillColor: [41, 98, 255],
+     fillColor: [2, 1, 43],
       textColor: [255, 255, 255],
       fontSize: 10,
       fontStyle: 'bold',
@@ -215,15 +242,12 @@ export function generateQuotationPdf(opts) {
   });
   y = doc.lastAutoTable.finalY + 8;
 
-  // Sub Total = sum of all lines except tax. Total = sub total + 15% tax.
-  const isTaxLine = (line) => {
-    const name = (line.name || '').toLowerCase();
-    return name.includes('tax') || name.includes('ضريبة');
-  };
+
   const subTotalWithoutTax = (quotation.lines || [])
     .filter((line) => !isTaxLine(line))
     .reduce((sum, line) => sum + (Number(line.subtotal) || 0), 0);
-  const totalWithTax = Math.round(subTotalWithoutTax * 1.15 * 100) / 100;
+const totalWithTax =
+  Math.round(subTotalWithoutTax * (1 + TAX_RATE) * 100) / 100;
   const amountX = margin + 48;
 
   font(10);
