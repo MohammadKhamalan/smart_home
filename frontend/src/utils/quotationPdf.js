@@ -297,6 +297,14 @@ const totalWithTax =
  */
 export function downloadQuotationPdf(opts, filename) {
   const doc = generateQuotationPdf(opts);
-  const name = filename || `Quotation-${opts.quoteNumber || 'QT-000001'}.pdf`;
-  doc.save(name);
+  const name = filename || 'Quotation.pdf';
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  if (isIOS) {
+    const pdfBlobUrl = doc.output('bloburl');
+    window.open(pdfBlobUrl, '_blank');
+  } else {
+    doc.save(name);
+  }
 }
