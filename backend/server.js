@@ -14,7 +14,10 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
+  // Old Vercel URL (kept for backward compatibility)
   'https://smart-home-sand-six.vercel.app',
+  // New Vercel project URL (from screenshot)
+  'https://smart-home-b61362i9o-mohammad-khalanas-projects.vercel.app',
   ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
 
