@@ -41,6 +41,18 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // IMPORTANT
 
+// Ensure CORS is set on every response (helps when Render returns or app errors)
+function setCorsIfAllowed(req, res, next) {
+  const origin = req.get('Origin');
+  if (origin && originAllowed(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  }
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  next();
+}
+app.use(setCorsIfAllowed);
+
 app.use(express.json({ limit: '512kb' }));
 
 /* =========================
@@ -165,9 +177,14 @@ app.post('/api/quotations', (req, res) => {
 const publicDir = path.join(__dirname, 'public');
 const pdfDir = path.join(publicDir, 'pdf');
 
+// Max 800KB per image to avoid OOM on Render (512MB limit)
+const MAX_IMAGE_BYTES = 800 * 1024;
+
 function loadLocalImageDataUrl(filePath) {
   try {
     if (!fs.existsSync(filePath)) return null;
+    const stat = fs.statSync(filePath);
+    if (stat.size > MAX_IMAGE_BYTES) return null;
     const buf = fs.readFileSync(filePath);
     const base64 = buf.toString('base64');
     const ext = path.extname(filePath).toLowerCase();
@@ -195,12 +212,16 @@ app.post('/api/quotation/pdf', (req, res) => {
       return res.status(400).json({ success: false, message: 'quotation required' });
     }
 
+    // Limit lines to avoid huge payloads and OOM
+    const lines = Array.isArray(quotation.lines) ? quotation.lines.slice(0, 200) : [];
+    const safeQuotation = { ...quotation, lines };
+
     const assetsDir = path.join(__dirname, 'assets');
     const logoDataUrl = loadLocalImageDataUrl(path.join(assetsDir, 'logo.png'));
     const signatureDataUrl = loadLocalImageDataUrl(path.join(assetsDir, 'signature.png')) || loadLocalImageDataUrl(path.join(assetsDir, 'signiture.png'));
 
     const opts = {
-      quotation,
+      quotation: safeQuotation,
       quoteNumber,
       billTo: (billTo && String(billTo).trim()) || 'Client',
       subject: subject || 'Smart Home Quotation',
@@ -220,7 +241,8 @@ app.post('/api/quotation/pdf', (req, res) => {
       fs.mkdirSync(pdfDir, { recursive: true });
     }
     const filePath = path.join(pdfDir, filename);
-    const buffer = Buffer.from(doc.output('arraybuffer'));
+    const arrayBuffer = doc.output('arraybuffer');
+    const buffer = Buffer.from(arrayBuffer);
     fs.writeFileSync(filePath, buffer);
 
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
