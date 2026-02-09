@@ -7,13 +7,15 @@ const formatNum = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigi
 
 const defaultCompany = {
   name: 'Zuccess',
-  address: 'Al Khobar',
+  nameAr: 'شركة الصفقة المضمونة',
+  nameEn: 'Guaranteed Deal Company',
+  address: 'AL Khobar',
   country: 'Kingdom of Saudi Arabia',
   phone: '+966 56 119 1797',
-  email: 'info@zuccess.net',
+  email: 'info@zuccess.ai',
   website: 'www.zuccess.ai',
-  licenseNumber: '7042632393',
-  vatNumber: '312668821500003',
+  licenseNumber: '2051247739',
+  vatNumber: '311640292300003',
 };
 
 const pdfLabels = {
@@ -55,60 +57,55 @@ function generateQuotationPdf(opts) {
   doc.setFillColor(25, 55, 95);
   doc.rect(0, 0, pageW, headerBandHeight, 'F');
 
-  const logoW = 70;
-  const logoH = 27;
-  const logoY = 12;
+  // Logo top-left (expanded width and height); no text block next to logo
+  const logoW = 38;
+  const logoH = 38;
+  const logoY = 10;
+  const logoX = 5;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, logoY, logoW, logoH);
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoW, logoH);
     } catch (_) {}
   }
 
-  doc.setTextColor(0, 0, 0);
-  y = logoY + logoH + 10;
-
-  const rightColX = pageW - margin - 58;
-  const rowH = 6;
-
-  font(14, 'bold');
-  text(comp.name, margin, y);
+  const rightEdgeX = pageW - margin;
+  const rowH = 5.5;
+  let headerY = logoY + 14;
+  doc.setTextColor(130, 147, 179);
   font(16, 'bold');
-  text(labels.quote, rightColX, y);
+  text(labels.quote, rightEdgeX, headerY, { align: 'right' });
+  font(11, 'normal');
+  text(`#${quoteNumber}`, rightEdgeX, headerY + rowH, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
 
+  // Left column below logo: Zuccess (blue), address, country, email (blue), website (blue)
+  y = logoY + logoH + 18;
+  const blue = [0, 51, 153];
+  font(12, 'bold');
+  doc.setTextColor(blue[0], blue[1], blue[2]);
+  text(comp.name, margin, y);
+  doc.setTextColor(0, 0, 0);
   font(10, 'normal');
   text(comp.address, margin, y + rowH);
-  font(11, 'normal');
-  text(`# ${quoteNumber}`, rightColX, y + rowH);
-
   text(comp.country, margin, y + rowH * 2);
-  text(comp.phone, rightColX, y + rowH * 2);
+  doc.setTextColor(blue[0], blue[1], blue[2]);
+  text(comp.email, margin, y + rowH * 3);
+  text(comp.website, margin, y + rowH * 4);
+  doc.setTextColor(0, 0, 0);
 
-  font(10, 'bold');
-  text(labels.billTo, margin, y + rowH * 3);
-  font(10, 'normal');
-  text(comp.email, rightColX, y + rowH * 3);
-
-  text(billTo, margin, y + rowH * 4);
-  text(comp.website, rightColX, y + rowH * 4);
-
-  if (comp.licenseNumber) {
-    font(9, 'normal');
-    text(`License: ${comp.licenseNumber}`, rightColX, y + rowH * 5);
-  }
-  if (comp.vatNumber) {
-    text(`VAT: ${comp.vatNumber}`, rightColX, comp.licenseNumber ? y + rowH * 6 : y + rowH * 5);
-    font(10, 'normal');
-  }
-
-  y += (comp.licenseNumber || comp.vatNumber ? rowH * 7 : rowH * 5) + 6;
-
-  text('Subject:', margin, y);
-  text(subject, margin + 16, y);
-  y += 5;
+  // Right column: Quote Date, Commercial Registration (CR), VAT Registration No.
   const dateStr = quoteDate instanceof Date ? quoteDate : new Date(quoteDate);
   const dateFormatted = dateStr.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
-  y += 12;
+  font(10, 'normal');
+  text(`${labels.quoteDate} : ${dateFormatted}`, rightEdgeX, y, { align: 'right' });
+  if (comp.licenseNumber) {
+    text(`Commercial Registration (CR): ${comp.licenseNumber}`, rightEdgeX, y + rowH, { align: 'right' });
+  }
+  if (comp.vatNumber) {
+    text(`VAT Registration No.: ${comp.vatNumber}`, rightEdgeX, y + rowH * (comp.licenseNumber ? 2 : 1), { align: 'right' });
+  }
+
+  y += (comp.licenseNumber && comp.vatNumber ? rowH * 3 : comp.licenseNumber || comp.vatNumber ? rowH * 2 : rowH) + 12;
 
   const lines = quotation.lines || [];
 
@@ -118,6 +115,13 @@ function generateQuotationPdf(opts) {
   };
 
   const displayLines = lines.filter((line) => !isTaxLine(line));
+
+  // Bill To above the table
+  font(10, 'bold');
+  text(labels.billTo, margin, y);
+  font(10, 'normal');
+  text(billTo, margin + 18, y);
+  y += 8;
 
   const tableData = displayLines.length
     ? displayLines.map((line, i) => {

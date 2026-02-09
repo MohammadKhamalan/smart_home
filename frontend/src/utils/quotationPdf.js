@@ -8,13 +8,15 @@ const formatNum = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigi
 
 const defaultCompany = {
   name: 'Zuccess',
-  address: 'Al Khobar',
+  nameAr: 'شركة الصفقة المضمونة',
+  nameEn: 'Guaranteed Deal Company',
+  address: 'AL Khobar',
   country: 'Kingdom of Saudi Arabia',
   phone: '+966 56 119 1797',
-  email: 'info@zuccess.net',
+  email: 'info@zuccess.ai',
   website: 'www.zuccess.ai',
-  licenseNumber: '7042632393',
-  vatNumber: '312668821500003',
+  licenseNumber: '2051247739',
+  vatNumber: '311640292300003',
 };
 
 const defaultTerms = {
@@ -110,67 +112,57 @@ export function generateQuotationPdf(opts) {
   };
   const text = (str, x, yPos, options = {}) => doc.text(str, x, yPos, options);
 
-  // ----- Page 1: Colored header band then logo (above), then company row -----
+  // ----- Page 1: Header – logo top-left (expanded), then Zuccess block; right: Quote, Date, CR, VAT; Bill To at bottom -----
   const headerBandHeight = 7;
-  doc.setFillColor(25, 55, 95); // navy header (كحلي)
+  doc.setFillColor(25, 55, 95);
   doc.rect(0, 0, pageW, headerBandHeight, 'F');
 
-  const logoW = 70;
-  const logoH = 27;
-  const logoY = 12;
+  const logoW = 100;
+  const logoH = 38;
+  const logoY = 10;
+  const logoX = 5;
   if (logoDataUrl) {
     try {
-      doc.addImage(logoDataUrl, 'PNG', pageW - margin - logoW, logoY, logoW, logoH);
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoW, logoH);
     } catch (_) {}
   }
 
-  doc.setTextColor(0, 0, 0);
-  y = logoY + logoH + 10;
-
-  const rightColX = pageW - margin - 58;
-  const rowH = 6;
-
-  // Left column at margin | right column (Quote, contact, License, VAT)
-  font(14, 'bold');
-  text(comp.name, margin, y);
+  const rightEdgeX = pageW - margin;
+  const rowH = 5.5;
+  const quoteBlockY = logoY + 24;
+  doc.setTextColor(130, 147, 179);
   font(16, 'bold');
-  text(labels.quote, rightColX, y);
+  text(labels.quote, rightEdgeX, quoteBlockY, { align: 'right' });
+  font(11, 'normal');
+  text(`#${quoteNumber}`, rightEdgeX, quoteBlockY + rowH, { align: 'right' });
+  doc.setTextColor(0, 0, 0);
 
+  y = logoY + logoH + 18;
+  const blue = [0, 51, 153];
+  font(12, 'bold');
+  doc.setTextColor(blue[0], blue[1], blue[2]);
+  text(comp.name, margin, y);
+  doc.setTextColor(0, 0, 0);
   font(10, 'normal');
   text(comp.address, margin, y + rowH);
-  font(11, 'normal');
-  text(`# ${quoteNumber}`, rightColX, y + rowH);
-
   text(comp.country, margin, y + rowH * 2);
-  text(comp.phone, rightColX, y + rowH * 2);
+  doc.setTextColor(blue[0], blue[1], blue[2]);
+  text(comp.email, margin, y + rowH * 3);
+  text(comp.website, margin, y + rowH * 4);
+  doc.setTextColor(0, 0, 0);
 
-  font(10, 'bold');
-  text(labels.billTo, margin, y + rowH * 3);
-  font(10, 'normal');
-  text(comp.email, rightColX, y + rowH * 3);
-
-  text(billTo, margin, y + rowH * 4);
-  text(comp.website, rightColX, y + rowH * 4);
-
-  if (comp.licenseNumber) {
-    font(9, 'normal');
-    text(`License: ${comp.licenseNumber}`, rightColX, y + rowH * 5);
-  }
-  if (comp.vatNumber) {
-    text(`VAT: ${comp.vatNumber}`, rightColX, comp.licenseNumber ? y + rowH * 6 : y + rowH * 5);
-    font(10, 'normal');
-  }
-
-  y += (comp.licenseNumber || comp.vatNumber ? rowH * 7 : rowH * 5) + 6;
-
-  // Subject & Date
-  text('Subject:', margin, y);
-  text(subject, margin + 16, y);
-  y += 5;
   const dateStr = quoteDate instanceof Date ? quoteDate : new Date(quoteDate);
   const dateFormatted = dateStr.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
-  y += 12;
+  font(10, 'normal');
+  text(`${labels.quoteDate} : ${dateFormatted}`, rightEdgeX, y, { align: 'right' });
+  if (comp.licenseNumber) {
+    text(`Commercial Registration (CR): ${comp.licenseNumber}`, rightEdgeX, y + rowH, { align: 'right' });
+  }
+  if (comp.vatNumber) {
+    text(`VAT Registration No.: ${comp.vatNumber}`, rightEdgeX, y + rowH * (comp.licenseNumber ? 2 : 1), { align: 'right' });
+  }
+
+  y += (comp.licenseNumber && comp.vatNumber ? rowH * 3 : comp.licenseNumber || comp.vatNumber ? rowH * 2 : rowH) + 12;
 
   // Table: exclude tax line; strip "15%" from Installation & programming row only
   const lines = quotation.lines || [];
@@ -179,6 +171,14 @@ export function generateQuotationPdf(opts) {
     return name.includes('tax') || name.includes('ضريبة');
   };
   const displayLines = lines.filter((line) => !isTaxLine(line));
+
+  // Bill To above the table
+  font(10, 'bold');
+  text(labels.billTo, margin, y);
+  font(10, 'normal');
+  text(billTo, margin + 18, y);
+  y += 8;
+
   const tableData = displayLines.length
     ? displayLines.map((line, i) => {
         const rawName = line.name || '—';
