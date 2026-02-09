@@ -172,16 +172,29 @@ export function generateQuotationPdf(opts) {
   text(`${labels.quoteDate}: ${dateFormatted}`, margin, y);
   y += 12;
 
-  // Table: # | Item & Description | Qty | Rate | Amount (include all lines so table is never empty)
+  // Table: exclude tax line; strip "15%" from Installation & programming row only
   const lines = quotation.lines || [];
-  const tableData = lines.length
-    ? lines.map((line, i) => [
-        i + 1,
-        line.name || '—',
-        formatNum(line.qty ?? 0),
-        formatNum(line.unitPrice ?? 0),
-        formatNum(line.subtotal ?? 0),
-      ])
+  const isTaxLine = (line) => {
+    const name = (line.name || '').toLowerCase();
+    return name.includes('tax') || name.includes('ضريبة');
+  };
+  const displayLines = lines.filter((line) => !isTaxLine(line));
+  const tableData = displayLines.length
+    ? displayLines.map((line, i) => {
+        const rawName = line.name || '—';
+        const lower = rawName.toLowerCase();
+        let displayName = rawName;
+        if (lower.includes('installation') && lower.includes('programming')) {
+          displayName = rawName.replace(/15\s*%/gi, '').replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+        }
+        return [
+          i + 1,
+          displayName,
+          formatNum(line.qty ?? 0),
+          formatNum(line.unitPrice ?? 0),
+          formatNum(line.subtotal ?? 0),
+        ];
+      })
     : [[1, 'No items', '0.00', '0.00', '0.00']];
 
   doc.autoTable({
@@ -208,10 +221,6 @@ export function generateQuotationPdf(opts) {
   y = doc.lastAutoTable.finalY + 8;
 
   // Sub Total = sum of all lines except tax. Total = sub total + 15% tax.
-  const isTaxLine = (line) => {
-    const name = (line.name || '').toLowerCase();
-    return name.includes('tax') || name.includes('ضريبة');
-  };
   const subTotalWithoutTax = (quotation.lines || [])
     .filter((line) => !isTaxLine(line))
     .reduce((sum, line) => sum + (Number(line.subtotal) || 0), 0);
