@@ -14,18 +14,25 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  // Old Vercel URL (kept for backward compatibility)
   'https://smart-home-sand-six.vercel.app',
-  // New Vercel project URL (from screenshot)
   'https://smart-home-b61362i9o-mohammad-khalanas-projects.vercel.app',
   ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean) : []),
 ];
 
+// Allow any Vercel deployment (*.vercel.app) so preview and production URLs work
+function originAllowed(origin) {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  try {
+    const u = new URL(origin);
+    if (u.hostname.endsWith('.vercel.app')) return true;
+  } catch (_) {}
+  return false;
+}
+
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(null, false);
+    callback(null, originAllowed(origin));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
