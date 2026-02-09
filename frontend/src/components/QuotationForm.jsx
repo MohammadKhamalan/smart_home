@@ -106,12 +106,32 @@ export default function QuotationForm({
         signatureDataUrl: signatureDataUrl || undefined,
       });
 
+      const filename = `Quotation-${pdfQuoteNumber}.pdf`;
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      // iOS Safari: use Web Share so user can "Save to Files" from share sheet (download attribute is ignored)
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ title: filename, files: [file] });
+          return;
+        } catch (e) {
+          if (e.name === 'AbortError') return; // user cancelled share
+        }
+      }
+
+      // iOS fallback or when share not used: open PDF in new tab so user can tap Share > Save to Files
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Quotation-${pdfQuoteNumber}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      if (isIOS) {
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     } catch (err) {
       console.error('PDF failed:', err);
     } finally {
