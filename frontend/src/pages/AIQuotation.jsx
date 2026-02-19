@@ -21,7 +21,7 @@ export default function AIQuotation({ user }) {
     services.forEach((svc) => {
       const name = (svc.name || 'AI Service').trim();
       const desc = (svc.description || '').trim()
-        ? ` — ${(svc.description || '').trim().slice(0, 80)}${(svc.description || '').length > 80 ? '...' : ''}`
+        ? ` — ${(svc.description || '').trim()}`
         : '';
       const qty = Math.max(0, Number(svc.qty) || 1);
       const unitPrice = Math.max(0, Number(svc.price) || 0);

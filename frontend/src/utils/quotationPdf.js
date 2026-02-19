@@ -212,7 +212,7 @@ export function generateQuotationPdf(opts) {
     bodyStyles: { fontSize: 10 },
     columnStyles: {
       0: { cellWidth: 10 },
-      1: { cellWidth: 'auto' },
+      1: { cellWidth: 'auto', overflow: 'linebreak', cellPadding: 3 },
       2: { cellWidth: 22 },
       3: { cellWidth: 28 },
       4: { cellWidth: 28 },
