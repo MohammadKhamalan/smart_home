@@ -255,15 +255,25 @@ app.post('/api/quotation/pdf', (req, res) => {
 });
 
 /* =========================
-   Serve generated PDFs from public/pdf
+   Serve generated PDFs from public/pdf (read file from there; works on iPhone)
 ========================= */
 
-if (fs.existsSync(pdfDir)) {
-  app.use('/pdf', express.static(pdfDir));
-} else {
+if (!fs.existsSync(pdfDir)) {
   fs.mkdirSync(pdfDir, { recursive: true });
-  app.use('/pdf', express.static(pdfDir));
 }
+
+// Serve PDF with Content-Disposition so opening the URL can trigger download
+app.get('/pdf/:filename', (req, res, next) => {
+  const filename = path.basename(req.params.filename);
+  if (!filename.endsWith('.pdf')) return next();
+  const filePath = path.join(pdfDir, filename);
+  if (!fs.existsSync(filePath)) return res.status(404).send('Not found');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.sendFile(path.resolve(filePath));
+});
+
+app.use('/pdf', express.static(pdfDir));
 
 /* =========================
    HEALTH

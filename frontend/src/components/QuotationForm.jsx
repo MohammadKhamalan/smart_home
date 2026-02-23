@@ -83,8 +83,33 @@ export default function QuotationForm({
     if (!quotation || pdfGenerating) return;
     setPdfGenerating(true);
     const subject = mode === 'smart-home' ? 'Smart Home Quotation' : mode === 'ai' ? 'AI Service Quotation' : 'Smart Home Rough Quotation';
+    const payload = {
+      quotation,
+      quoteNumber: pdfQuoteNumber,
+      billTo: (billTo && billTo.trim()) || 'Client',
+      subject,
+      quoteDate: new Date().toISOString(),
+      notes: 'Looking forward for your business.',
+      signatureName: 'Anas Salem',
+      signatureTitle: 'Operation Manager',
+    };
+
     try {
-      // Client-side PDF (no backend call – avoids CORS/502); use cached logo/signature
+      // Prefer server-side PDF: generated on backend, saved in public/pdf, works on iPhone
+      const res = await fetch(`${API_BASE}/api/quotation/pdf`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.url) {
+        // Open PDF URL in new tab – file is on server; on iPhone user can Share > Save to Files
+        window.open(data.url, '_blank');
+        return;
+      }
+
+      // Fallback: client-side PDF (e.g. backend unreachable or API_BASE not set)
       if (!preloadRef.current) {
         preloadRef.current = Promise.all([
           logoUrl ? imageUrlToDataUrl(logoUrl) : Promise.resolve(null),
@@ -94,14 +119,8 @@ export default function QuotationForm({
       const { logo: logoDataUrl, sig: signatureDataUrl } = await preloadRef.current;
 
       const blob = getQuotationPdfBlob({
-        quotation,
-        quoteNumber: pdfQuoteNumber,
-        billTo: (billTo && billTo.trim()) || 'Client',
-        subject,
+        ...payload,
         quoteDate: new Date(),
-        notes: 'Looking forward for your business.',
-        signatureName: 'Anas Salem',
-        signatureTitle: 'Operation Manager',
         logoDataUrl: logoDataUrl || undefined,
         signatureDataUrl: signatureDataUrl || undefined,
       });
@@ -109,17 +128,15 @@ export default function QuotationForm({
       const filename = `Quotation-${pdfQuoteNumber}.pdf`;
       const file = new File([blob], filename, { type: 'application/pdf' });
 
-      // iOS Safari: use Web Share so user can "Save to Files" from share sheet (download attribute is ignored)
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ title: filename, files: [file] });
           return;
         } catch (e) {
-          if (e.name === 'AbortError') return; // user cancelled share
+          if (e.name === 'AbortError') return;
         }
       }
 
-      // iOS fallback or when share not used: open PDF in new tab so user can tap Share > Save to Files
       const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
       const url = URL.createObjectURL(blob);
       if (isIOS) {
